@@ -89,6 +89,7 @@
 !/unrealinsights/
 !/nsight-graphics/
 !/lldb/
+!/macrocli/
 !/sbox/
 !/quietshrink/
 
@@ -179,6 +180,8 @@
 /nsight-graphics/.*
 /lldb/*
 /lldb/.*
+/macrocli/*
+/macrocli/.*
 /sbox/*
 /sbox/.*
 /quietshrink/*
@@ -236,8 +239,15 @@
 !/unrealinsights/agent-harness/
 !/nsight-graphics/agent-harness/
 !/lldb/agent-harness/
+!/macrocli/agent-harness/
 !/sbox/agent-harness/
 !/quietshrink/agent-harness/
+
+# Exclude non-gedit demo macros from macrocli (local only)
+/macrocli/agent-harness/cli_anything/macrocli/macro_definitions/demo/flameshot*
+/macrocli/agent-harness/cli_anything/macrocli/macro_definitions/demo/kolourpaint*
+/macrocli/agent-harness/cli_anything/macrocli/macro_definitions/demo/snapshots/
+
 
 # Step 7: Ignore build artifacts within allowed dirs
 **/__pycache__/

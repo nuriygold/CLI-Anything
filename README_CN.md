@@ -11,7 +11,7 @@ CLI-Anything：连接 AI Agent 与全世界软件的桥梁</strong><br>
   <a href="#-快速上手"><img src="https://img.shields.io/badge/快速上手-5_分钟-blue?style=for-the-badge" alt="Quick Start"></a>
   <a href="#-实测展示"><img src="https://img.shields.io/badge/Demo-13_款软件-green?style=for-the-badge" alt="Demos"></a>
   <a href="#-测试结果"><img src="https://img.shields.io/badge/测试-1%2C741_通过-brightgreen?style=for-the-badge" alt="Tests"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge" alt="License"></a>
 </p>
 
 <p align="center">
@@ -970,7 +970,7 @@ CLI_ANYTHING_FORCE_INSTALLED=1 python3 -m pytest cli_anything/<软件名>/tests/
 
 ## 📄 License
 
-MIT License — 可自由使用、修改和分发。
+Apache License 2.0 — 可自由使用、修改和分发。
 
 ---
 

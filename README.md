@@ -16,7 +16,7 @@ CLI-Anything: Bridging the Gap Between AI Agents and the World's Software</stron
   <a href="https://hkuds.github.io/CLI-Anything/"><img src="https://img.shields.io/badge/CLI_Hub-Browse_%26_Install-ff69b4?style=for-the-badge" alt="CLI Hub"></a>
   <a href="#-demonstrations"><img src="https://img.shields.io/badge/Demos-18_Apps-green?style=for-the-badge" alt="Demos"></a>
   <a href="#-test-results"><img src="https://img.shields.io/badge/Tests-2%2C269_Passing-brightgreen?style=for-the-badge" alt="Tests"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge" alt="License"></a>
 </p>
 
 <p align="center">
@@ -1415,7 +1415,7 @@ If CLI-Anything helps make your software Agent-native, give us a star! ⭐
 
 ## 📄 License
 
-MIT License — free to use, modify, and distribute.
+Apache License 2.0 — free to use, modify, and distribute.
 
 ---
 
