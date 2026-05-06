@@ -7,6 +7,8 @@ from click.testing import CliRunner
 
 from cli_anything.litellm.core.execution import execute_task
 from cli_anything.litellm.core.patches import build_patch, ensure_workspace_path, rollback_patch
+from cli_anything.litellm.core.planner import build_plan
+from cli_anything.litellm.core.router import execute_plan
 from cli_anything.litellm.core.session import SessionStore
 from cli_anything.litellm.core.taskdefs import load_task, validate_definition
 from cli_anything.litellm.litellm_cli import cli
@@ -174,6 +176,31 @@ class TestExecution:
         assert result["status"] == "completed"
         assert mock_verify.call_args[0][0] == "python -m py_compile engine.py"
 
+    def test_build_plan_repo_analysis(self, tmp_path):
+        plan = build_plan("inspect this repo", workspace=tmp_path)
+        assert plan["intent"]["intent"] == "repo_analysis"
+        assert plan["route"] == "litellm-reasoner"
+
+    def test_build_plan_system_diagnostics(self, tmp_path):
+        plan = build_plan("review my battery usage", workspace=tmp_path)
+        assert plan["intent"]["intent"] == "system_diagnostics"
+        assert plan["route"] == "system"
+        assert plan["execution_mode"] == "answer"
+
+    @patch("cli_anything.litellm.core.router.ask_model")
+    def test_execute_plan_reasoner_route(self, mock_ask, tmp_path):
+        mock_ask.return_value = {"content": "Repo summary.", "model": "gpt-5.4", "workspace": str(tmp_path)}
+        plan = build_plan("inspect this repo", workspace=tmp_path)
+        execution = execute_plan(plan, host="https://litellm.nuriy.com/v1", api_key=None, model="gpt-5.4")
+        assert execution["status"] == "completed"
+        assert execution["result"]["content"] == "Repo summary."
+
+    def test_execute_plan_planned_only_route(self, tmp_path):
+        plan = build_plan("review my battery usage", workspace=tmp_path)
+        execution = execute_plan(plan, host="https://litellm.nuriy.com/v1", api_key=None, model="gpt-5.4")
+        assert execution["status"] == "planned_only"
+        assert "not wired" in execution["result"]["content"]
+
 
 class TestCLI:
     def test_help(self, runner):
@@ -199,11 +226,50 @@ class TestCLI:
         mock_ask.return_value = {"content": "Check Activity Monitor.", "model": "gpt-5.4", "workspace": str(tmp_path)}
         result = runner.invoke(cli, ["--workspace", str(tmp_path), "ask", "review", "my", "battery"])
         assert result.exit_code == 0
-        assert "Check Activity Monitor." in result.output
+        assert "not wired" in result.output
 
-    @patch("cli_anything.litellm.litellm_cli.ask_model")
-    def test_repl_plain_language_routes_to_ask(self, mock_ask, runner, tmp_path):
-        mock_ask.return_value = {"content": "Top consumers are likely browser tabs.", "model": "gpt-5.4", "workspace": str(tmp_path)}
-        result = runner.invoke(cli, ["--workspace", str(tmp_path)], input="review my battery usage\nquit\n")
+    def test_plan_command(self, runner, tmp_path):
+        result = runner.invoke(cli, ["--workspace", str(tmp_path), "plan", "review", "my", "battery", "usage"])
         assert result.exit_code == 0
-        assert "Top consumers are likely browser tabs." in result.output
+        assert "system_diagnostics" in result.output
+
+    @patch("cli_anything.litellm.core.router.ask_model")
+    def test_run_command(self, mock_ask, runner, tmp_path):
+        mock_ask.return_value = {"content": "Repo summary.", "model": "gpt-5.4", "workspace": str(tmp_path)}
+        result = runner.invoke(cli, ["--workspace", str(tmp_path), "run", "inspect", "this", "repo"])
+        assert result.exit_code == 0
+        assert "Repo summary." in result.output
+
+    @patch("cli_anything.litellm.litellm_cli.run_shell_command")
+    def test_shell_command(self, mock_shell, runner, tmp_path):
+        mock_shell.return_value = {
+            "status": "completed",
+            "command": "pip install cli-anything-hub",
+            "returncode": 0,
+            "stdout": "installed\n",
+            "stderr": "",
+        }
+        result = runner.invoke(cli, ["--workspace", str(tmp_path), "shell", "pip", "install", "cli-anything-hub"])
+        assert result.exit_code == 0
+        assert "installed" in result.output
+
+    @patch("cli_anything.litellm.litellm_cli.run_shell_command")
+    def test_repl_shell_like_routes_to_shell(self, mock_shell, runner, tmp_path):
+        mock_shell.return_value = {
+            "status": "completed",
+            "command": "pip install cli-anything-hub",
+            "returncode": 0,
+            "stdout": "installed\n",
+            "stderr": "",
+        }
+        result = runner.invoke(cli, ["--workspace", str(tmp_path)], input="pip install cli-anything-hub\nquit\n")
+        assert result.exit_code == 0
+        assert "installed" in result.output
+
+    @patch("cli_anything.litellm.litellm_cli.click.confirm", return_value=False)
+    @patch("cli_anything.litellm.litellm_cli.run_shell_command")
+    def test_repl_destructive_shell_requires_confirmation(self, mock_shell, _mock_confirm, runner, tmp_path):
+        result = runner.invoke(cli, ["--workspace", str(tmp_path)], input="rm -rf /tmp/nope\nquit\n")
+        assert result.exit_code == 0
+        assert "Cancelled." in result.output
+        mock_shell.assert_not_called()

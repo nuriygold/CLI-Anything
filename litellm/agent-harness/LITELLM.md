@@ -86,3 +86,12 @@ steps:
 
 - Unit tests mock LiteLLM proxy responses and shell verification.
 - E2E-style tests exercise analyze -> patch -> apply -> verify loops on temp repos.
+
+## Phase Roadmap
+
+- Phase 1: agent shell core, intent classification, and planning
+- Phase 2: search + memory adapters and workspace recall
+- Phase 3: system diagnostics and process/runtime adapters
+- Phase 4: terminal and browser grounding
+- Phase 5: workflow orchestration adapters
+- Phase 6: GUI fallback adapters

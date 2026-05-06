@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,51 @@ If the user asks for operating-system diagnostics, be explicit that you cannot i
 live system state unless given command output or files, but still give concrete next checks.
 Keep the answer concise and actionable.
 """
+
+SHELL_COMMAND_PREFIXES = {
+    "brew",
+    "cargo",
+    "cat",
+    "cp",
+    "echo",
+    "find",
+    "git",
+    "go",
+    "head",
+    "ls",
+    "make",
+    "mkdir",
+    "mv",
+    "npm",
+    "npx",
+    "node",
+    "pnpm",
+    "pip",
+    "python",
+    "python3",
+    "pytest",
+    "pwd",
+    "rg",
+    "rm",
+    "rmdir",
+    "sed",
+    "tail",
+    "touch",
+    "uv",
+}
+
+DESTRUCTIVE_SHELL_PREFIXES = {
+    "chmod",
+    "chown",
+    "dd",
+    "diskutil",
+    "kill",
+    "mkfs",
+    "pkill",
+    "rm",
+    "rmdir",
+    "sudo",
+}
 
 
 def parse_completion_payload(response: dict[str, Any]) -> dict[str, Any]:
@@ -97,6 +143,39 @@ def run_verify(command: str | None, workspace: str | Path) -> dict[str, Any]:
     )
     return {
         "status": "passed" if proc.returncode == 0 else "failed",
+        "command": command,
+        "returncode": proc.returncode,
+        "stdout": proc.stdout,
+        "stderr": proc.stderr,
+    }
+
+
+def looks_like_shell_command(text: str) -> bool:
+    try:
+        first = shlex.split(text.strip())[0].lower()
+    except (ValueError, IndexError):
+        return False
+    return first in SHELL_COMMAND_PREFIXES
+
+
+def requires_shell_confirmation(text: str) -> bool:
+    try:
+        first = shlex.split(text.strip())[0].lower()
+    except (ValueError, IndexError):
+        return False
+    return first in DESTRUCTIVE_SHELL_PREFIXES or text.strip().startswith(("git reset", "git clean", "git push", "brew uninstall", "npm uninstall", "pip uninstall"))
+
+
+def run_shell_command(command: str, workspace: str | Path) -> dict[str, Any]:
+    proc = subprocess.run(
+        command,
+        cwd=str(Path(workspace).resolve()),
+        shell=True,
+        capture_output=True,
+        text=True,
+    )
+    return {
+        "status": "completed" if proc.returncode == 0 else "failed",
         "command": command,
         "returncode": proc.returncode,
         "stdout": proc.stdout,

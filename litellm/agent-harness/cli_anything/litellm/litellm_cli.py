@@ -12,8 +12,18 @@ from typing import Any
 import click
 
 from cli_anything.litellm import __version__
-from cli_anything.litellm.core.execution import ask_model, execute_flow, execute_task
+from cli_anything.litellm.core.execution import (
+    ask_model,
+    execute_flow,
+    execute_task,
+    looks_like_shell_command,
+    run_shell_command,
+    requires_shell_confirmation,
+)
 from cli_anything.litellm.core.patches import export_patch, rollback_patch
+from cli_anything.litellm.core.planner import build_plan
+from cli_anything.litellm.core.response import execution_summary, plan_summary, shell_summary
+from cli_anything.litellm.core.router import execute_plan
 from cli_anything.litellm.core.session import SessionStore, workspace_session_file
 from cli_anything.litellm.core.taskdefs import load_flow, load_task, validate_definition
 from cli_anything.litellm.utils.litellm_backend import (
@@ -79,22 +89,49 @@ def _looks_like_command(line: str) -> bool:
         token = shlex.split(line)[0]
     except (ValueError, IndexError):
         return False
-    return token in {"help", "exit", "quit", "repl", "models", "health", "config", "task", "flow", "patch", "session", "ask"}
+    return token in {"help", "exit", "quit", "repl", "models", "health", "config", "task", "flow", "patch", "session", "ask", "plan", "run", "shell"}
 
 
 def _run_ask(ctx: click.Context, prompt: str) -> None:
     model = ctx.obj.get("model")
     if not model:
         raise RuntimeError("No model configured. Use --model or `config set model <alias>`.")
-    result = ask_model(
-        prompt,
-        workspace=ctx.obj["workspace"],
+    plan = build_plan(prompt, workspace=ctx.obj["workspace"], mode="assist")
+    execution = execute_plan(
+        plan,
         host=ctx.obj["host"],
         api_key=ctx.obj["api_key"],
         model=model,
     )
-    _session(ctx.obj["workspace"]).record("ask", {"prompt": prompt}, result)
-    _output(result if ctx.obj["as_json"] else result["content"], ctx.obj["as_json"], "Assistant")
+    summary = execution_summary(execution)
+    _session(ctx.obj["workspace"]).record("ask", {"prompt": prompt, "plan": plan_summary(plan)}, execution)
+    _output(summary if ctx.obj["as_json"] else summary["content"], ctx.obj["as_json"], "Assistant")
+
+
+def _run_shell(ctx: click.Context, command: str) -> None:
+    if requires_shell_confirmation(command):
+        if not click.confirm(f"Run potentially destructive command?\n\n{command}", default=False):
+            if ctx.obj["as_json"]:
+                _output({"status": "cancelled", "command": command}, True, "Shell")
+            else:
+                click.echo("Cancelled.")
+            return
+    result = run_shell_command(command, ctx.obj["workspace"])
+    _session(ctx.obj["workspace"]).record("shell", {"command": command}, result)
+    summary = shell_summary(result)
+    if ctx.obj["as_json"]:
+        _output(summary, True, "Shell")
+    else:
+        if summary["stdout"]:
+            click.echo(summary["stdout"], nl=False)
+            if not summary["stdout"].endswith("\n"):
+                click.echo()
+        if summary["stderr"]:
+            click.echo(summary["stderr"], err=True, nl=False)
+            if not summary["stderr"].endswith("\n"):
+                click.echo(err=True)
+        if summary["status"] != "completed":
+            raise SystemExit(summary["returncode"] or 1)
 
 
 @click.group(context_settings=CONTEXT_SETTINGS, invoke_without_command=True)
@@ -151,7 +188,9 @@ def repl(ctx: click.Context) -> None:
         if line in {"exit", "quit"}:
             break
         try:
-            if _looks_like_command(line):
+            if looks_like_shell_command(line):
+                _run_shell(ctx, line)
+            elif _looks_like_command(line):
                 cli.main(args=shlex.split(line), standalone_mode=False, obj=ctx.obj)
             else:
                 _run_ask(ctx, line)
@@ -191,6 +230,47 @@ def health_cmd(ctx: click.Context) -> None:
 def ask_cmd(ctx: click.Context, prompt: tuple[str, ...]) -> None:
     """Ask for plain-language help instead of running a task/flow command."""
     _run_ask(ctx, " ".join(prompt))
+
+
+@cli.command("plan")
+@click.argument("prompt", nargs=-1, required=True)
+@click.pass_context
+@_handle_error
+def plan_cmd(ctx: click.Context, prompt: tuple[str, ...]) -> None:
+    """Show the agent plan for a natural-language request."""
+    plan = build_plan(" ".join(prompt), workspace=ctx.obj["workspace"], mode="assist")
+    _session(ctx.obj["workspace"]).record("plan", {"prompt": " ".join(prompt)}, plan)
+    _output(plan_summary(plan), ctx.obj["as_json"], "Plan")
+
+
+@cli.command("run")
+@click.argument("prompt", nargs=-1, required=True)
+@click.pass_context
+@_handle_error
+def run_cmd(ctx: click.Context, prompt: tuple[str, ...]) -> None:
+    """Execute the planned route for a natural-language request."""
+    model = ctx.obj.get("model")
+    if not model:
+        raise RuntimeError("No model configured. Use --model or `config set model <alias>`.")
+    joined = " ".join(prompt)
+    plan = build_plan(joined, workspace=ctx.obj["workspace"], mode="assist")
+    execution = execute_plan(
+        plan,
+        host=ctx.obj["host"],
+        api_key=ctx.obj["api_key"],
+        model=model,
+    )
+    _session(ctx.obj["workspace"]).record("run", {"prompt": joined, "plan": plan_summary(plan)}, execution)
+    _output(execution_summary(execution), ctx.obj["as_json"], "Run")
+
+
+@cli.command("shell")
+@click.argument("command", nargs=-1, required=True)
+@click.pass_context
+@_handle_error
+def shell_cmd(ctx: click.Context, command: tuple[str, ...]) -> None:
+    """Execute a local shell command directly."""
+    _run_shell(ctx, " ".join(command))
 
 
 @cli.group()
