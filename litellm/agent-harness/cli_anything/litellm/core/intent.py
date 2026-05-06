@@ -16,7 +16,9 @@ INTENT_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
     ("patch_generation", ("fix", "patch", "edit", "rewrite", "update this file", "apply")),
 ]
 
-MUTATING_INTENTS = {"patch_generation", "workflow_editing", "process_runtime"}
+MUTATING_INTENTS = {"patch_generation", "workflow_editing"}
+
+PROCESS_RUNTIME_MUTATING_KEYWORDS = ("restart", "stop", "start", "kill", "reload", "deploy", "restart", "uninstall")
 
 
 def classify_intent(prompt: str) -> dict[str, Any]:
@@ -38,9 +40,12 @@ def classify_intent(prompt: str) -> dict[str, Any]:
             best_matches = matches
 
     confidence = min(0.95, 0.35 + 0.15 * len(best_matches)) if best_matches else 0.3
+    mutating = best_intent in MUTATING_INTENTS
+    if best_intent == "process_runtime":
+        mutating = any(keyword in text for keyword in PROCESS_RUNTIME_MUTATING_KEYWORDS)
     return {
         "intent": best_intent,
         "confidence": confidence,
-        "mutating": best_intent in MUTATING_INTENTS,
+        "mutating": mutating,
         "matched_keywords": best_matches,
     }

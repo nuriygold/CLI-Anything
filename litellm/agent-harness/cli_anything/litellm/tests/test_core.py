@@ -187,6 +187,13 @@ class TestExecution:
         assert plan["route"] == "system"
         assert plan["execution_mode"] == "answer"
 
+    def test_build_plan_process_runtime_shell(self, tmp_path):
+        plan = build_plan("List my PM2 processes", workspace=tmp_path)
+        assert plan["intent"]["intent"] == "process_runtime"
+        assert plan["route"] == "pm2"
+        assert plan["execution_mode"] == "shell"
+        assert plan["requires_confirmation"] is False
+
     @patch("cli_anything.litellm.core.router.ask_model")
     def test_execute_plan_reasoner_route(self, mock_ask, tmp_path):
         mock_ask.return_value = {"content": "Repo summary.", "model": "gpt-5.4", "workspace": str(tmp_path)}
@@ -195,11 +202,20 @@ class TestExecution:
         assert execution["status"] == "completed"
         assert execution["result"]["content"] == "Repo summary."
 
-    def test_execute_plan_planned_only_route(self, tmp_path):
-        plan = build_plan("review my battery usage", workspace=tmp_path)
+    @patch("cli_anything.litellm.core.router.run_shell_command")
+    def test_execute_plan_pm2_route(self, mock_shell, tmp_path):
+        mock_shell.return_value = {
+            "status": "completed",
+            "command": "pm2 list",
+            "returncode": 0,
+            "stdout": "id name\n",
+            "stderr": "",
+        }
+        plan = build_plan("List my PM2 processes", workspace=tmp_path)
         execution = execute_plan(plan, host="https://litellm.nuriy.com/v1", api_key=None, model="gpt-5.4")
-        assert execution["status"] == "planned_only"
-        assert "not wired" in execution["result"]["content"]
+        assert execution["status"] == "completed"
+        assert execution["result"]["command"] == "pm2 list"
+        mock_shell.assert_called_once()
 
 
 class TestCLI:

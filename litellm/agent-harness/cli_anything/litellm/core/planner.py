@@ -26,14 +26,16 @@ def build_plan(prompt: str, *, workspace: str | Path, mode: str = "assist") -> d
     intent = classification["intent"]
     tool_candidates = TOOL_CANDIDATES[intent]
     workspace_path = str(Path(workspace).resolve())
-    execution_mode = "explain_only" if classification["mutating"] else "answer"
+    execution_mode = "shell" if intent == "process_runtime" and not classification["mutating"] else ("explain_only" if classification["mutating"] else "answer")
     requires_confirmation = classification["mutating"] and mode != "act"
     limitations: list[str] = []
     if classification["mutating"]:
         limitations.append("Natural-language mutating requests are planned conservatively in phase 1.")
         limitations.append("Use explicit `task run` or `flow run` for fully automated patch loops.")
-    if intent in {"system_diagnostics", "process_runtime", "browser_inspection", "research", "memory"}:
+    if intent in {"system_diagnostics", "browser_inspection", "research", "memory"}:
         limitations.append("Phase 1 identifies the right tool domain but does not execute external tool adapters yet.")
+    if intent == "process_runtime" and not classification["mutating"]:
+        limitations.append("Phase 1 can run read-only PM2 commands directly through the shell executor.")
 
     rationale = {
         "system_diagnostics": "The prompt asks about system behavior or resource consumption.",

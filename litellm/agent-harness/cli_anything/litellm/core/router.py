@@ -5,7 +5,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from cli_anything.litellm.core.execution import ask_model, collect_context
+from cli_anything.litellm.core.execution import ask_model, collect_context, run_shell_command
+
+
+def _pm2_command(prompt: str) -> str:
+    text = prompt.strip().lower()
+    if any(keyword in text for keyword in ("list", "show", "status", "processes", "processes", "ls")):
+        return "pm2 list"
+    if "logs" in text:
+        return "pm2 logs"
+    if "restart" in text:
+        return "pm2 restart all"
+    return "pm2 list"
 
 
 def execute_plan(plan: dict[str, Any], *, host: str, api_key: str | None, model: str) -> dict[str, Any]:
@@ -24,6 +35,16 @@ def execute_plan(plan: dict[str, Any], *, host: str, api_key: str | None, model:
             model=model,
             include=include,
         )
+        return {
+            "status": "completed",
+            "route": route,
+            "plan": plan,
+            "result": result,
+        }
+
+    if route == "pm2":
+        command = _pm2_command(prompt)
+        result = run_shell_command(command, workspace)
         return {
             "status": "completed",
             "route": route,

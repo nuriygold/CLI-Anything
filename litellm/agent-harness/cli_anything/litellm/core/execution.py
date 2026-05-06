@@ -56,6 +56,7 @@ SHELL_COMMAND_PREFIXES = {
     "npm",
     "npx",
     "node",
+    "pm2",
     "pnpm",
     "pip",
     "python",
