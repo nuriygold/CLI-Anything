@@ -14,6 +14,8 @@ pip install cli-anything-litellm
 cli health
 cli models list
 cli ask "review my repo setup"
+cli plan "review my battery usage"
+cli run "inspect this repo"
 cli config bootstrap --workspace .
 cli task run .litellm/tasks/repair.yaml --workspace .
 cli patch show
@@ -29,3 +31,5 @@ cli patch rollback
 - Produces both unified diff and action JSON for each patch loop.
 - Defaults to app/workflow editing with auto-apply, repo-scoped safety, and verification after each patch.
 - At the `litellm>` prompt, plain English input is treated as an ad hoc `ask` request.
+- Phase 1 adds intent classification, planning, and routing.
+- Phase 2 is reserved for search + memory adapters and workspace recall.
