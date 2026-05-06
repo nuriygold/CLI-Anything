@@ -17,6 +17,17 @@ python -m pip install --upgrade pip
 python -m pip install -e litellm/agent-harness
 python -m pip install -e pm2/agent-harness
 
+echo "Checking PM2 binary..."
+if ! command -v pm2 >/dev/null 2>&1; then
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "npm is missing. Install Node.js first, then rerun ./setup.sh"
+    exit 1
+  fi
+  echo "Installing PM2 globally..."
+  npm install -g pm2
+fi
+
+
 python - <<'PY'
 import cli_anything.pm2
 print("PM2 adapter import: OK")
