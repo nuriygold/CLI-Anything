@@ -22,9 +22,9 @@ def plan_summary(plan: dict[str, Any]) -> dict[str, Any]:
 def execution_summary(execution: dict[str, Any]) -> dict[str, Any]:
     result = execution["result"]
     if isinstance(result, dict):
-        content = result.get("content", "")
+        content = execution.get("content") or result.get("content", "") or result.get("stdout", "") or result.get("stderr", "")
     else:
-        content = str(result)
+        content = execution.get("content") or str(result)
     return {
         "status": execution["status"],
         "route": execution["route"],

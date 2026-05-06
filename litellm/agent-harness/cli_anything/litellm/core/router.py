@@ -45,10 +45,12 @@ def execute_plan(plan: dict[str, Any], *, host: str, api_key: str | None, model:
     if route == "pm2":
         command = _pm2_command(prompt)
         result = run_shell_command(command, workspace)
+        content = result.get("stdout") or result.get("stderr") or f"Ran `{command}`."
         return {
             "status": "completed",
             "route": route,
             "plan": plan,
+            "content": content,
             "result": result,
         }
 

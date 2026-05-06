@@ -97,6 +97,9 @@ def _run_ask(ctx: click.Context, prompt: str) -> None:
     if not model:
         raise RuntimeError("No model configured. Use --model or `config set model <alias>`.")
     plan = build_plan(prompt, workspace=ctx.obj["workspace"], mode="assist")
+    if not ctx.obj["as_json"]:
+        info(f"I’m treating this as a {plan['intent']['intent'].replace('_', ' ')} request.")
+        info(f"I’ll route it through `{plan['route']}` and tell you what I find.")
     execution = execute_plan(
         plan,
         host=ctx.obj["host"],
@@ -109,6 +112,8 @@ def _run_ask(ctx: click.Context, prompt: str) -> None:
 
 
 def _run_shell(ctx: click.Context, command: str) -> None:
+    if not ctx.obj["as_json"]:
+        info(f"I’m running this locally as a shell command: `{command}`")
     if requires_shell_confirmation(command):
         if not click.confirm(f"Run potentially destructive command?\n\n{command}", default=False):
             if ctx.obj["as_json"]:
@@ -122,6 +127,8 @@ def _run_shell(ctx: click.Context, command: str) -> None:
     if ctx.obj["as_json"]:
         _output(summary, True, "Shell")
     else:
+        if summary["status"] == "completed":
+            success("Command completed.")
         if summary["stdout"]:
             click.echo(summary["stdout"], nl=False)
             if not summary["stdout"].endswith("\n"):
@@ -131,6 +138,7 @@ def _run_shell(ctx: click.Context, command: str) -> None:
             if not summary["stderr"].endswith("\n"):
                 click.echo(err=True)
         if summary["status"] != "completed":
+            error(f"Command failed with exit code {summary['returncode']}.")
             raise SystemExit(summary["returncode"] or 1)
 
 
@@ -189,10 +197,14 @@ def repl(ctx: click.Context) -> None:
             break
         try:
             if looks_like_shell_command(line):
+                if not ctx.obj["as_json"]:
+                    info("I think that’s a shell command, so I’m executing it directly.")
                 _run_shell(ctx, line)
             elif _looks_like_command(line):
                 cli.main(args=shlex.split(line), standalone_mode=False, obj=ctx.obj)
             else:
+                if not ctx.obj["as_json"]:
+                    info("I’m treating that as a normal request and asking the model to help.")
                 _run_ask(ctx, line)
         except SystemExit:
             pass
