@@ -16,7 +16,7 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e litellm/agent-harness
 python -m pip install -e pm2/agent-harness
-python -m pip install cli-anything-hub
+python -m pip install cli-anything-hub==0.3.0
 
 echo "Checking PM2 binary..."
 if ! command -v pm2 >/dev/null 2>&1; then
